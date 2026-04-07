@@ -1,7 +1,12 @@
 from socket import *
+import sys
 
-serverName = 'google.com'
-serverPort = 80
+if len(sys.argv) != 3:
+    print("Usage: python go2web.py <server_name> <server_port>")
+    sys.exit(1)
+
+serverName = sys.argv[1]
+serverPort = int(sys.argv[2])
 
 # Create a IPv4, TCP socket
 clientSocket = socket(AF_INET, SOCK_STREAM)
