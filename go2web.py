@@ -1,12 +1,29 @@
 from socket import *
 import sys
 
-if len(sys.argv) != 3:
-    print("Usage: python go2web.py <server_name> <server_port>")
+# parse command line arguments
+if len(sys.argv) <= 1:
+    print("Error: wrong format.")
     sys.exit(1)
 
-serverName = sys.argv[1]
-serverPort = int(sys.argv[2])
+if len(sys.argv) == 2 and sys.argv[1] == "-h":
+    print("Help command.")
+    sys.exit(0)
+
+if len(sys.argv) == 3 and sys.argv[1] == "-u":
+    print("URL command.")
+    host = sys.argv[2]
+    print(f"Host: {host}")
+    sys.exit(0)
+
+if len(sys.argv) >= 3 and sys.argv[1] == "-s":
+    print("Search command.")
+    print("Search terms: " + " ".join(sys.argv[2:]))
+    sys.exit(0)
+
+
+serverName = "google.com"
+serverPort = 80
 
 # Create a IPv4, TCP socket
 clientSocket = socket(AF_INET, SOCK_STREAM)
