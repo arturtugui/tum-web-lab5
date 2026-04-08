@@ -10,6 +10,8 @@ search_engine = "html.duckduckgo.com" # results parsing is duckduckgo specific
 nr_of_results_to_print = 10
 snippet_max_length = 69 # because it wraps at 72 characters in the terminal, and we want to add "..." at the end if truncated
 
+redirect_limit = 5
+
 def parse_args():
     # parse command line arguments
     if len(sys.argv) <= 1:
@@ -116,25 +118,7 @@ def make_http_request(host, port, path, is_search):
 
     if is_search:
         search_results = parse_search_results(http_response)
-        print(f"Top {len(search_results)} search results for '{path.split('q=')[1]}':")
-        for i, result in enumerate(search_results, start=1):
-            print(f"\t{i}. {result['title']}")
-
-            # add https:// to URLs to make clickable
-            url = result['url']
-            if not url.startswith(("http://", "https://")):
-                url = "https://" + url
-            print(f"\t   URL: {url}")
-            
-            # truncate the snippet
-            snippet_text = result['snippet']
-
-            truncated_snippet = snippet_text[:snippet_max_length]
-            
-            if len(snippet_text) > snippet_max_length:
-                truncated_snippet += "..."
-            
-            print(f"\t   Snippet: {truncated_snippet}\n")
+        print_search_results(search_results)
               
     clientSocket.close()
 
@@ -201,9 +185,27 @@ def parse_search_results(http_response):
 
     return results
 
+def print_search_results(search_results):
+    print(f"Top {len(search_results)} search results for '{sys.path.split('q=')[1]}':")
+    
+    for i, result in enumerate(search_results, start=1):
+        print(f"\t{i}. {result['title']}")
+
+        # add https:// to URLs to make clickable
+        url = result['url']
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+        print(f"\t   URL: {url}")
+
+        # truncate the snippet
+        snippet_text = result['snippet']
+        truncated_snippet = snippet_text[:snippet_max_length]
+        if len(snippet_text) > snippet_max_length:
+            truncated_snippet += "..."
+        print(f"\t   Snippet: {truncated_snippet}\n")
+
 def main():
     parse_args()
-    print
 
 if __name__ == "__main__":
     main()
