@@ -1,9 +1,13 @@
 from socket import *
 import sys
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 import ssl
+from bs4 import BeautifulSoup
 
-search_engine = "Google"
+# Returns simple HTML structure, doesnt block scrapping so aggressively
+search_engine = "html.duckduckgo.com"
+nr_of_results_to_print = 10
+snippet_max_length = 69 # because it wraps at 72 characters in the terminal, and we want to add "..." at the end if truncated
 
 def parse_args():
     # parse command line arguments
@@ -18,13 +22,13 @@ def parse_args():
     elif len(sys.argv) == 3 and sys.argv[1] == "-u":
         url = sys.argv[2]
         host, port, path = parse_url(url)
-        make_http_request(host, port, path)
+        make_http_request(host, port, path, is_search=False)
         sys.exit(0)
 
     elif len(sys.argv) >= 3 and sys.argv[1] == "-s":
-        print("Search command.")
         term = " ".join(sys.argv[2:])
-        print("Search terms: " + term)
+        path = build_search_path(term)
+        make_http_request(search_engine, 443, path, is_search=True)
         sys.exit(0)
 
     else:
@@ -67,7 +71,12 @@ def parse_url(url):
 
     return host, port, path
 
-def make_http_request(host, port, path):
+def build_search_path(search_term):
+    # URL-encode the search term and construct the DuckDuckGo search path
+    encoded_term = quote_plus(search_term)
+    return f"/html/?q={encoded_term}"
+
+def make_http_request(host, port, path, is_search):
     # Create a IPv4, TCP socket
     clientSocket = socket(AF_INET, SOCK_STREAM)
 
@@ -102,11 +111,28 @@ def make_http_request(host, port, path):
 
     http_response = http_response_binary.decode(errors="replace")
 
-    parse_response(http_response)
+    parse_and_print_response_header(http_response)
+
+    if is_search:
+        search_results = parse_search_results(http_response)
+        print(f"Top {len(search_results)} search results for '{path.split('q=')[1]}':")
+        for i, result in enumerate(search_results, start=1):
+            print(f"\t{i}. {result['title']}")
+            print(f"\t\tURL: {result['url']}")
+            
+            # truncate the snippet
+            snippet_text = result['snippet']
+
+            truncated_snippet = snippet_text[:snippet_max_length]
+            
+            if len(snippet_text) > snippet_max_length:
+                truncated_snippet += "..."
+            
+            print(f"\t\tSnippet: {truncated_snippet}\n")
 
     clientSocket.close()
 
-def parse_response(http_response):
+def parse_and_print_response_header(http_response):
     # Extract response information
     header_end = http_response.find("\r\n\r\n")
     http_response_header = http_response[:header_end]
@@ -135,10 +161,42 @@ def parse_response(http_response):
     print(f"\tDate: {date}")
     print(f"\tExpiration: {expiration}\n")
 
+def parse_search_results(http_response):
+    #  Extract the response body (HTML content) from the HTTP response
+    response_body = http_response.split("\r\n\r\n", 1)[1]
+    soup = BeautifulSoup(response_body, "html.parser")
+
+    results = []
+
+    # Find all result divs (with results)
+    result_divs = soup.find_all("div", class_="result results_links results_links_deep web-result")
+    
+    for i, result_div in enumerate(result_divs[:nr_of_results_to_print]):
+        try:
+            # Title
+            title_elem = result_div.find("h2", class_="result__title")
+            title = title_elem.find("a").text.strip() if title_elem else "N/A"
+            
+            # URL
+            url_elem = result_div.find("a", class_="result__url")
+            url = url_elem.text.strip() if url_elem else "N/A"
+            
+            # Description/snippet
+            snippet_elem = result_div.find("a", class_="result__snippet")
+            snippet = snippet_elem.text.strip() if snippet_elem else "N/A"
+            
+            results.append({
+                "title": title,
+                "url": url,
+                "snippet": snippet
+            })
+        except Exception as e:
+            continue
+
+    return results
+
 def main():
     parse_args()
-
-    
 
 if __name__ == "__main__":
     main()
