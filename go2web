@@ -76,16 +76,22 @@ def parse_response(http_response):
 
     #   Split header before and after "Date: " and pick the part after
     #   Split the remaining string at the first occurrence of "\r\n" to get the date value
-    date = http_response_header.split("Date: ")[1].split("\r\n")[0]
+    try:
+        date = http_response_header.split("Date: ")[1].split("\r\n")[0]
+    except IndexError:
+        date = "N/A"
 
-    expiration = http_response_header.split("Expires: ")[1].split("\r\n")[0]
+    try:    
+        expiration = http_response_header.split("Expires: ")[1].split("\r\n")[0]
+    except IndexError:
+        expiration = "N/A"
 
-    print("\tHTTP Response Header Information:")
-    print(f"Protocol: {protocol}")
-    print(f"Status Code: {status_code}")
-    print(f"Status Message: {status_message}")
-    print(f"Date: {date}")
-    print(f"Expiration: {expiration}\n")
+    print("HTTP Response Header Information:")
+    print(f"\tProtocol: {protocol}")
+    print(f"\tStatus Code: {status_code}")
+    print(f"\tStatus Message: {status_message}")
+    print(f"\tDate: {date}")
+    print(f"\tExpiration: {expiration}\n")
 
 def main():
     parse_args()
