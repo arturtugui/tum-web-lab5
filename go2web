@@ -17,8 +17,8 @@ def parse_args():
 
     elif len(sys.argv) == 3 and sys.argv[1] == "-u":
         url = sys.argv[2]
-        host, port = parse_url(url)
-        make_http_request(host, port)
+        host, port, path = parse_url(url)
+        make_http_request(host, port, path)
         sys.exit(0)
 
     elif len(sys.argv) >= 3 and sys.argv[1] == "-s":
@@ -53,14 +53,21 @@ def parse_url(url):
         sys.exit(1)
 
     host = parsed_url.hostname
-    port = parsed_url.port
 
+    port = parsed_url.port
     if not port:
         port = 80
 
-    return host, port
+    # If the path is empty, set it to "/"
+    path = parsed_url.path or "/"
+    # If the URL contains a query string, append it to the path
+    if parsed_url.query:
+        path += "?" + parsed_url.query
 
-def make_http_request(host, port):
+
+    return host, port, path
+
+def make_http_request(host, port, path):
     # Create a IPv4, TCP socket
     clientSocket = socket(AF_INET, SOCK_STREAM)
 
@@ -69,9 +76,13 @@ def make_http_request(host, port):
     clientSocket.connect((host, port))
 
     # Send an HTTP GET request to the server
-    http_request = '''GET / HTTP/1.1\r\n
-                Host: ''' + host + '''\r\n
-                \r\n'''
+    #   Note: I was getting 400/406 when constructing the request using """...""" format
+    http_request = (
+        f"GET {path} HTTP/1.1\r\n"
+        f"Host: {host}\r\n"
+        f"Connection: close\r\n"
+        f"\r\n"
+    )
 
     #   If HTTPS is used, handle TLS (wrap the socket with SSL/TLS support)
     if port == 443:
