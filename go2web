@@ -10,7 +10,7 @@ search_engine = "html.duckduckgo.com" # results parsing is duckduckgo specific
 nr_of_results_to_print = 10
 snippet_max_length = 69 # because it wraps at 72 characters in the terminal, and we want to add "..." at the end if truncated
 
-redirect_limit = 5
+redirect_limit_global = 5
 
 def parse_args():
     # parse command line arguments
@@ -25,13 +25,13 @@ def parse_args():
     elif len(sys.argv) == 3 and sys.argv[1] == "-u":
         url = sys.argv[2]
         host, port, path = parse_url(url)
-        make_http_request(host, port, path, is_search=False)
+        make_http_request(host, port, path, is_search=False, redirect_limit=redirect_limit_global)
         sys.exit(0)
 
     elif len(sys.argv) >= 3 and sys.argv[1] == "-s":
         term = " ".join(sys.argv[2:])
         path = build_search_path(term)
-        make_http_request(search_engine, 443, path, is_search=True)
+        make_http_request(search_engine, 443, path, is_search=True, redirect_limit=redirect_limit_global)
         sys.exit(0)
 
     else:
@@ -78,8 +78,8 @@ def build_search_path(search_term):
     # URL-encode the search term and construct the DuckDuckGo search path
     encoded_term = quote_plus(search_term)
     return f"/html/?q={encoded_term}"
-
-def make_http_request(host, port, path, is_search):
+    
+def make_http_request(host, port, path, is_search, redirect_limit):
     # Create a IPv4, TCP socket
     clientSocket = socket(AF_INET, SOCK_STREAM)
 
@@ -114,9 +114,28 @@ def make_http_request(host, port, path, is_search):
 
     http_response = http_response_binary.decode(errors="replace")
 
-    parse_response_header(http_response)
+    header_info_dict = parse_response_header(http_response)    
 
-    print_response_header()
+    # Handle redirects
+    if header_info_dict["status_code"] in ("301", "302", "303", "307", "308"):
+        if redirect_limit <= 0:
+            print("Error: redirect limit reached.")
+            sys.exit(1)
+        
+        location = header_info_dict.get("location")
+        if location:
+            print(f"Redirecting to: {location}\n")
+            # If location is relative (starts with /), make it absolute
+            if location.startswith("/"):
+                scheme = "https" if port == 443 else "http"
+                location = f"{scheme}://{host}{location}"
+            
+            new_host, new_port, new_path = parse_url(location)
+            clientSocket.close()
+            make_http_request(new_host, new_port, new_path, is_search=False, redirect_limit=redirect_limit - 1)
+            return
+    
+    print_response_header(header_info_dict)
 
     if is_search:
         search_results = parse_search_results(http_response)
@@ -134,24 +153,43 @@ def parse_response_header(http_response):
     status_code = status_line.split()[1]
     status_message = " ".join(status_line.split()[2:])
 
-    #   Split header before and after "Date: " and pick the part after
-    #   Split the remaining string at the first occurrence of "\r\n" to get the date value
+    # Extract Date header
     try:
         date = http_response_header.split("Date: ")[1].split("\r\n")[0]
     except IndexError:
         date = "N/A"
 
+    # Extract Expires header
     try:    
         expiration = http_response_header.split("Expires: ")[1].split("\r\n")[0]
     except IndexError:
         expiration = "N/A"
+    
+    # Extract Location header (for redirects)
+    location = None
+    try:
+        location = http_response_header.split("Location: ")[1].split("\r\n")[0]
+    except IndexError:
+        location = None
+    
+    header_info_dict = {
+        "protocol": protocol,
+        "status_code": status_code,
+        "status_message": status_message,
+        "date": date,
+        "expiration": expiration,
+        "location": location
+    }
 
+    return header_info_dict
+
+def print_response_header(header_info_dict):
     print("HTTP Response Header Information:")
-    print(f"\tProtocol: {protocol}")
-    print(f"\tStatus Code: {status_code}")
-    print(f"\tStatus Message: {status_message}")
-    print(f"\tDate: {date}")
-    print(f"\tExpiration: {expiration}\n")
+    print(f"\tProtocol: {header_info_dict['protocol']}")
+    print(f"\tStatus Code: {header_info_dict['status_code']}")
+    print(f"\tStatus Message: {header_info_dict['status_message']}")
+    print(f"\tDate: {header_info_dict['date']}")
+    print(f"\tExpiration: {header_info_dict['expiration']}\n")
 
 def parse_search_results(http_response):
     #  Extract the response body (HTML content) from the HTTP response
