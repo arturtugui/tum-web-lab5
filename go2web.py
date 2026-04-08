@@ -21,7 +21,8 @@ def parse_args():
 
     elif len(sys.argv) >= 3 and sys.argv[1] == "-s":
         print("Search command.")
-        print("Search terms: " + " ".join(sys.argv[2:]))
+        term = " ".join(sys.argv[2:])
+        print("Search terms: " + term)
         sys.exit(0)
 
     else:
@@ -59,6 +60,11 @@ def make_http_request(host, port):
 
     http_response = http_response_binary.decode(errors="replace")
 
+    parse_response(http_response)
+
+    clientSocket.close()
+
+def parse_response(http_response):
     # Extract response information
     header_end = http_response.find("\r\n\r\n")
     http_response_header = http_response[:header_end]
@@ -80,8 +86,6 @@ def make_http_request(host, port):
     print(f"Status Message: {status_message}")
     print(f"Date: {date}")
     print(f"Expiration: {expiration}\n")
-
-    clientSocket.close()
 
 def main():
     parse_args()
