@@ -114,7 +114,9 @@ def make_http_request(host, port, path, is_search):
 
     http_response = http_response_binary.decode(errors="replace")
 
-    parse_and_print_response_header(http_response)
+    parse_response_header(http_response)
+
+    print_response_header()
 
     if is_search:
         search_results = parse_search_results(http_response)
@@ -122,7 +124,7 @@ def make_http_request(host, port, path, is_search):
               
     clientSocket.close()
 
-def parse_and_print_response_header(http_response):
+def parse_response_header(http_response):
     # Extract response information
     header_end = http_response.find("\r\n\r\n")
     http_response_header = http_response[:header_end]
@@ -156,7 +158,7 @@ def parse_search_results(http_response):
     response_body = http_response.split("\r\n\r\n", 1)[1]
     soup = BeautifulSoup(response_body, "html.parser")
 
-    results = []
+    search_results_dicts = []
 
     # Find all result divs (with results)
     result_divs = soup.find_all("div", class_="result results_links results_links_deep web-result")
@@ -175,7 +177,7 @@ def parse_search_results(http_response):
             snippet_elem = result_div.find("a", class_="result__snippet")
             snippet = snippet_elem.text.strip() if snippet_elem else "N/A"
             
-            results.append({
+            search_results_dicts.append({
                 "title": title,
                 "url": url,
                 "snippet": snippet
@@ -183,12 +185,12 @@ def parse_search_results(http_response):
         except Exception as e:
             continue
 
-    return results
+    return search_results_dicts
 
-def print_search_results(search_results):
-    print(f"Top {len(search_results)} search results for '{sys.path.split('q=')[1]}':")
-    
-    for i, result in enumerate(search_results, start=1):
+def print_search_results(search_results_dicts):
+    print(f"Top {len(search_results_dicts)} search results for '{sys.path.split('q=')[1]}':")
+
+    for i, result in enumerate(search_results_dicts, start=1):
         print(f"\t{i}. {result['title']}")
 
         # add https:// to URLs to make clickable
