@@ -5,7 +5,8 @@ import ssl
 from bs4 import BeautifulSoup
 
 # Returns simple HTML structure, doesnt block scrapping so aggressively
-search_engine = "html.duckduckgo.com"
+search_engine = "html.duckduckgo.com" # results parsing is duckduckgo specific
+
 nr_of_results_to_print = 10
 snippet_max_length = 69 # because it wraps at 72 characters in the terminal, and we want to add "..." at the end if truncated
 
