@@ -118,7 +118,12 @@ def make_http_request(host, port, path, is_search):
         print(f"Top {len(search_results)} search results for '{path.split('q=')[1]}':")
         for i, result in enumerate(search_results, start=1):
             print(f"\t{i}. {result['title']}")
-            print(f"\t\tURL: {result['url']}")
+
+            # add https:// to URLs to make clickable
+            url = result['url']
+            if not url.startswith(("http://", "https://")):
+                url = "https://" + url
+            print(f"\t   URL: {url}")
             
             # truncate the snippet
             snippet_text = result['snippet']
@@ -128,8 +133,8 @@ def make_http_request(host, port, path, is_search):
             if len(snippet_text) > snippet_max_length:
                 truncated_snippet += "..."
             
-            print(f"\t\tSnippet: {truncated_snippet}\n")
-
+            print(f"\t   Snippet: {truncated_snippet}\n")
+              
     clientSocket.close()
 
 def parse_and_print_response_header(http_response):
@@ -197,6 +202,7 @@ def parse_search_results(http_response):
 
 def main():
     parse_args()
+    print
 
 if __name__ == "__main__":
     main()
