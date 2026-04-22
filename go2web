@@ -3,6 +3,8 @@ import sys
 from urllib.parse import urlparse, quote_plus
 import ssl
 from bs4 import BeautifulSoup
+import json, time, os
+
 
 # Returns simple HTML structure, doesnt block scrapping so aggressively
 search_engine = "html.duckduckgo.com" # results parsing is duckduckgo specific
@@ -11,6 +13,8 @@ nr_of_results_to_print = 10
 snippet_max_length = 69 # because it wraps at 72 characters in the terminal, and we want to add "..." at the end if truncated
 
 redirect_limit_global = 5
+
+CACHE_FILE = "go2web_cache.json"
 
 def parse_args():
     # parse command line arguments
@@ -132,7 +136,7 @@ def make_http_request(host, port, path, is_search, redirect_limit, search_term=N
             
             new_host, new_port, new_path = parse_url(location)
             clientSocket.close()
-            make_http_request(new_host, new_port, new_path, is_search=False, redirect_limit=redirect_limit - 1)
+            make_http_request(new_host, new_port, new_path, is_search=False, redirect_limit=redirect_limit - 1, search_term=search_term)
             return
     
     print_response_header(header_info_dict)
@@ -243,6 +247,24 @@ def print_search_results(search_results_dicts, search_term):
         if len(snippet_text) > snippet_max_length:
             truncated_snippet += "..."
         print(f"\t   Snippet: {truncated_snippet}\n")
+
+# caching-related
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            print("[Warning] Cache is corrupted, could not load")
+            return {}
+    
+    with open(CACHE_FILE, 'w') as f:
+        json.dump({}, f)
+    return {}
+
+def save_cache(cache):
+    with open(CACHE_FILE, 'w') as f:
+        json.dump(cache, f)
 
 def main():
     parse_args()
