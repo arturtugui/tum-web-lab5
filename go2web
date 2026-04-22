@@ -16,6 +16,13 @@ redirect_limit_global = 5
 
 CACHE_FILE = "go2web_cache.json"
 
+# to showcase you may use
+# text/html
+# application/json
+# or both
+# text/html, application/json
+accepted_content_types = "text/html, application/json"
+
 def parse_args():
     # parse command line arguments
     if len(sys.argv) <= 1:
@@ -33,6 +40,7 @@ def parse_args():
 
         header_info_dict = parse_response_header(http_response)
         print_response_header(header_info_dict)
+        print_response_body(http_response, header_info_dict["content_type"])
 
         sys.exit(0)
 
@@ -44,7 +52,8 @@ def parse_args():
         
         header_info_dict = parse_response_header(http_response)
         print_response_header(header_info_dict)
-        
+        print_response_body(http_response, header_info_dict["content_type"])
+
         search_results = parse_search_results(http_response)
         print_search_results(search_results, term)
 
@@ -108,7 +117,7 @@ def make_http_request(host, port, path, redirect_limit):
     http_request = (
         f"GET {path} HTTP/1.1\r\n"
         f"Host: {host}\r\n"
-        f"Accept: application/json, text/html\r\n"
+        f"Accept: {accepted_content_types}\r\n"
         f"Connection: close\r\n"
         f"\r\n"
     )
@@ -183,14 +192,22 @@ def parse_response_header(http_response):
         location = http_response_header.split("Location: ")[1].split("\r\n")[0]
     except IndexError:
         location = None
-    
+
+    # Extract Content-Type header
+    content_type = None
+    try:
+        content_type = http_response_header.split("Content-Type: ")[1].split("\r\n")[0]
+    except IndexError:
+        content_type = "N/A"
+
     header_info_dict = {
         "protocol": protocol,
         "status_code": status_code,
         "status_message": status_message,
         "date": date,
         "expiration": expiration,
-        "location": location
+        "location": location,
+        "content_type": content_type
     }
 
     return header_info_dict
@@ -201,7 +218,39 @@ def print_response_header(header_info_dict):
     print(f"\tStatus Code: {header_info_dict['status_code']}")
     print(f"\tStatus Message: {header_info_dict['status_message']}")
     print(f"\tDate: {header_info_dict['date']}")
-    print(f"\tExpiration: {header_info_dict['expiration']}\n")
+    print(f"\tExpiration: {header_info_dict['expiration']}")
+    print(f"\tContent-Type: {header_info_dict['content_type']}\n")
+
+def print_response_body(http_response, content_type):
+    response_body = http_response.split("\r\n\r\n", 1)[1]
+    
+    # Handle chunked encoding (remove hex chunk sizes)
+    lines = response_body.split('\r\n')
+    cleaned_lines = [l for l in lines if l and not all(c in '0123456789abcdefABCDEF' for c in l)]
+    response_body = '\r\n'.join(cleaned_lines)
+
+    if "application/json" in content_type:
+        print("HTTP Response Body Information (JSON):")
+        # Parse and pretty-print JSON
+        try:
+            json_data = json.loads(response_body)
+            print("JSON Response:")
+            print(json.dumps(json_data, indent=2))
+        except:
+            print("Could not parse JSON response")
+    
+    elif "text/html" in content_type:
+        print("HTTP Response Body Information (HTML):")
+        # Extract meaningful HTML elements
+        soup = BeautifulSoup(response_body, "html.parser")
+        
+        title = soup.find("title")
+        if title:
+            print(f"[TITLE] {title.text}\n")
+        
+        # Headings
+        for heading in soup.find_all(["h1", "h2", "h3"])[:3]:
+            print(f"[{heading.name.upper()}] {heading.text}")
 
 def parse_search_results(http_response):
     #  Extract the response body (HTML content) from the HTTP response
