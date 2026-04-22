@@ -224,20 +224,29 @@ def print_response_header(header_info_dict):
 def print_response_body(http_response, content_type):
     response_body = http_response.split("\r\n\r\n", 1)[1]
     
-    # Handle chunked encoding (remove hex chunk sizes)
-    lines = response_body.split('\r\n')
-    cleaned_lines = [l for l in lines if l and not all(c in '0123456789abcdefABCDEF' for c in l)]
-    response_body = '\r\n'.join(cleaned_lines)
+    # Better chunked encoding handling
+    try:
+        lines = response_body.split('\r\n')
+        cleaned_lines = []
+        for line in lines:
+            # Skip hex chunk size lines (they're pure hex or empty)
+            if line and not all(c in '0123456789abcdefABCDEF' for c in line.strip()):
+                cleaned_lines.append(line)
+        response_body = '\n'.join(cleaned_lines)
+    except:
+        pass  # If cleaning fails, use original
 
     if "application/json" in content_type:
         print("HTTP Response Body Information (JSON):")
-        # Parse and pretty-print JSON
         try:
             json_data = json.loads(response_body)
             print("JSON Structure:")
             show_json_structure(json_data)
-        except:
-            print("Could not parse JSON response")
+        except Exception as e:
+            print(f"Could not parse JSON response: {e}")
+            # Fallback: print first 10 lines raw
+            print("Raw response (first 10 lines):")
+            print('\n'.join(response_body.split('\n')[:10]))
     
     elif "text/html" in content_type:
         print("HTTP Response Body Information (HTML):")
@@ -255,16 +264,17 @@ def print_response_body(http_response, content_type):
 
     print()
 
-def show_structure(obj, depth=0):
+def show_json_structure(obj, depth=0):
+    """Display JSON structure without overwhelming output"""
     if depth > 2:  # Don't go too deep
         return
     if isinstance(obj, dict):
         for key in list(obj.keys())[:5]:  # First 5 keys
             print(f"{'  ' * depth}• {key}: {type(obj[key]).__name__}")
-            show_structure(obj[key], depth+1)
+            show_json_structure(obj[key], depth+1)
     elif isinstance(obj, list) and obj:
         print(f"{'  ' * depth}[{len(obj)} items]")
-        show_structure(obj[0], depth+1)
+        show_json_structure(obj[0], depth+1)
 
 def parse_search_results(http_response):
     #  Extract the response body (HTML content) from the HTTP response
