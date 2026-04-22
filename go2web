@@ -31,7 +31,7 @@ def parse_args():
     elif len(sys.argv) >= 3 and sys.argv[1] == "-s":
         term = " ".join(sys.argv[2:])
         path = build_search_path(term)
-        make_http_request(search_engine, 443, path, is_search=True, redirect_limit=redirect_limit_global)
+        make_http_request(search_engine, 443, path, is_search=True, redirect_limit=redirect_limit_global, search_term=term)
         sys.exit(0)
 
     else:
@@ -79,7 +79,7 @@ def build_search_path(search_term):
     encoded_term = quote_plus(search_term)
     return f"/html/?q={encoded_term}"
     
-def make_http_request(host, port, path, is_search, redirect_limit):
+def make_http_request(host, port, path, is_search, redirect_limit, search_term=None):
     # Create a IPv4, TCP socket
     clientSocket = socket(AF_INET, SOCK_STREAM)
 
@@ -139,7 +139,7 @@ def make_http_request(host, port, path, is_search, redirect_limit):
 
     if is_search:
         search_results = parse_search_results(http_response)
-        print_search_results(search_results)
+        print_search_results(search_results, search_term)
               
     clientSocket.close()
 
@@ -225,8 +225,8 @@ def parse_search_results(http_response):
 
     return search_results_dicts
 
-def print_search_results(search_results_dicts):
-    print(f"Top {len(search_results_dicts)} search results for '{sys.path.split('q=')[1]}':")
+def print_search_results(search_results_dicts, search_term):
+    print(f"Top {len(search_results_dicts)} search results for '{search_term}':")
 
     for i, result in enumerate(search_results_dicts, start=1):
         print(f"\t{i}. {result['title']}")
