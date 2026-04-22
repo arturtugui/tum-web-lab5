@@ -29,13 +29,13 @@ def parse_args():
     elif len(sys.argv) == 3 and sys.argv[1] == "-u":
         url = sys.argv[2]
         host, port, path = parse_url(url)
-        make_http_request(host, port, path, is_search=False, redirect_limit=redirect_limit_global)
+        make_http_request_with_caching(host, port, path, is_search=False, redirect_limit=redirect_limit_global)
         sys.exit(0)
 
     elif len(sys.argv) >= 3 and sys.argv[1] == "-s":
         term = " ".join(sys.argv[2:])
         path = build_search_path(term)
-        make_http_request(search_engine, 443, path, is_search=True, redirect_limit=redirect_limit_global, search_term=term)
+        make_http_request_with_caching(search_engine, 443, path, is_search=True, redirect_limit=redirect_limit_global, search_term=term)
         sys.exit(0)
 
     else:
@@ -117,6 +117,8 @@ def make_http_request(host, port, path, is_search, redirect_limit, search_term=N
         http_response_binary += chunk
 
     http_response = http_response_binary.decode(errors="replace")
+    
+    # return a
 
     header_info_dict = parse_response_header(http_response)    
 
@@ -136,16 +138,23 @@ def make_http_request(host, port, path, is_search, redirect_limit, search_term=N
             
             new_host, new_port, new_path = parse_url(location)
             clientSocket.close()
-            make_http_request(new_host, new_port, new_path, is_search=False, redirect_limit=redirect_limit - 1, search_term=search_term)
+            make_http_request_with_caching(new_host, new_port, new_path, is_search=False, redirect_limit=redirect_limit - 1, search_term=search_term)
             return
+
+    #return b
     
     print_response_header(header_info_dict)
+
+    #return c
 
     if is_search:
         search_results = parse_search_results(http_response)
         print_search_results(search_results, search_term)
               
     clientSocket.close()
+
+    #return d
+    
 
 def parse_response_header(http_response):
     # Extract response information
@@ -265,6 +274,25 @@ def load_cache():
 def save_cache(cache):
     with open(CACHE_FILE, 'w') as f:
         json.dump(cache, f)
+
+def make_http_request_with_caching(host, port, path, is_search, redirect_limit, search_term=None, ttl=60): #ttl in seconds
+    cache = load_cache()
+    if host in cache:
+        entry = cache[host]
+        if time.time() - entry["timestamp"] < ttl:
+            print(f"[Cache hit] {host}")
+            return entry["body"]   # cache hit
+
+    # Cache miss: fetch from network
+    print(f"[Cache miss] {host}")
+    response = make_http_request(host, port, path, is_search, redirect_limit, search_term)
+
+
+
+    cache[host] = {"body": body, "timestamp": time.time()}
+    save_cache(cache)
+    return body
+
 
 def main():
     parse_args()
