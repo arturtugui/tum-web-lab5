@@ -67,8 +67,8 @@ def show_help():
     print("Usage: go2web [options]")
     print("Options:")
     print("  -h                Show this help message and exit")
-    print("  -u <URL>          Make an HTTP request to the specified URL and print the response")
-    print(f"  -s <search terms> Make an HTTP request to search the term using {search_engine} and print top 10 results")
+    print("  -u <URL>          Make an HTTP/HTTPS request to the specified URL and print the response")
+    print(f"  -s <search terms> Make an HTTP/HTTPS request to search the term using {search_engine} and print top 10 results")
 
 def parse_url(url):
     # urlparse() does not recognize google.com as a valid URL, so we need to add "http://" prefix if it's missing
@@ -88,7 +88,7 @@ def parse_url(url):
 
     port = parsed_url.port
     if not port:
-        port = 80
+        port = 443 if parsed_url.scheme == "https" else 80
 
     # If the path is empty, set it to "/"
     path = parsed_url.path or "/"
@@ -163,7 +163,8 @@ def make_http_request(host, port, path, redirect_limit):
     clientSocket.close()
 
     return http_response
-    
+
+# parsing and printing contents    
 def parse_response_header(http_response):
     # Extract response information
     header_end = http_response.find("\r\n\r\n")
@@ -265,7 +266,6 @@ def print_response_body(http_response, content_type):
     print()
 
 def show_json_structure(obj, depth=0):
-    """Display JSON structure without overwhelming output"""
     if depth > 2:  # Don't go too deep
         return
     if isinstance(obj, dict):
@@ -276,6 +276,7 @@ def show_json_structure(obj, depth=0):
         print(f"{'  ' * depth}[{len(obj)} items]")
         show_json_structure(obj[0], depth+1)
 
+# parsing and printing search results (DuckDuckGo specific)
 def parse_search_results(http_response):
     #  Extract the response body (HTML content) from the HTTP response
     response_body = http_response.split("\r\n\r\n", 1)[1]
