@@ -148,14 +148,12 @@ def make_http_request(host, port, path, redirect_limit):
             
             new_host, new_port, new_path = parse_url(location)
             clientSocket.close()
-            make_http_request_with_caching(new_host, new_port, new_path, redirect_limit=redirect_limit - 1)
-            return
+            return make_http_request_with_caching(new_host, new_port, new_path, redirect_limit=redirect_limit - 1)
                       
     clientSocket.close()
 
     return http_response
     
-
 def parse_response_header(http_response):
     # Extract response information
     header_end = http_response.find("\r\n\r\n")
@@ -277,17 +275,19 @@ def save_cache(cache):
 
 def make_http_request_with_caching(host, port, path, redirect_limit, ttl=60): #ttl in seconds
     cache = load_cache()
-    if host in cache:
-        entry = cache[host]
+
+    full_url = f"{host}:{port}{path}"
+    if full_url in cache:
+        entry = cache[full_url]
         if time.time() - entry["timestamp"] < ttl:
-            print(f"[Cache hit] {host}")
+            print(f"[Cache hit] {full_url}")
             return entry["response"]   # cache hit
 
     # Cache miss: fetch from network
-    print(f"[Cache miss] {host}")
+    print(f"[Cache miss] {full_url}")
     response = make_http_request(host, port, path, redirect_limit)
 
-    cache[host] = {"response": response, "timestamp": time.time()}
+    cache[full_url] = {"response": response, "timestamp": time.time()}
     save_cache(cache)
     return response
 
