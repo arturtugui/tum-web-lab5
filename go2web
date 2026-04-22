@@ -234,8 +234,8 @@ def print_response_body(http_response, content_type):
         # Parse and pretty-print JSON
         try:
             json_data = json.loads(response_body)
-            print("JSON Response:")
-            print(json.dumps(json_data, indent=2))
+            print("JSON Structure:")
+            show_json_structure(json_data)
         except:
             print("Could not parse JSON response")
     
@@ -246,11 +246,25 @@ def print_response_body(http_response, content_type):
         
         title = soup.find("title")
         if title:
-            print(f"[TITLE] {title.text}\n")
+            print(f"\t[TITLE] {title.text}")
         
         # Headings
         for heading in soup.find_all(["h1", "h2", "h3"])[:3]:
-            print(f"[{heading.name.upper()}] {heading.text}")
+            text = heading.get_text().strip()
+            print(f"\t[{heading.name.upper()}] {text}")
+
+    print()
+
+def show_structure(obj, depth=0):
+    if depth > 2:  # Don't go too deep
+        return
+    if isinstance(obj, dict):
+        for key in list(obj.keys())[:5]:  # First 5 keys
+            print(f"{'  ' * depth}• {key}: {type(obj[key]).__name__}")
+            show_structure(obj[key], depth+1)
+    elif isinstance(obj, list) and obj:
+        print(f"{'  ' * depth}[{len(obj)} items]")
+        show_structure(obj[0], depth+1)
 
 def parse_search_results(http_response):
     #  Extract the response body (HTML content) from the HTTP response
@@ -303,7 +317,7 @@ def print_search_results(search_results_dicts, search_term):
         truncated_snippet = snippet_text[:snippet_max_length]
         if len(snippet_text) > snippet_max_length:
             truncated_snippet += "..."
-        print(f"\t   Snippet: {truncated_snippet}\n")
+        print(f"\t   Snippet: {truncated_snippet}")
 
 # caching-related
 def load_cache():
@@ -330,11 +344,11 @@ def make_http_request_with_caching(host, port, path, redirect_limit, ttl=60): #t
     if full_url in cache:
         entry = cache[full_url]
         if time.time() - entry["timestamp"] < ttl:
-            print(f"[Cache hit] {full_url}")
+            print(f"[Cache hit] {full_url}\n")
             return entry["response"]   # cache hit
 
     # Cache miss: fetch from network
-    print(f"[Cache miss] {full_url}")
+    print(f"[Cache miss] {full_url}\n")
     response = make_http_request(host, port, path, redirect_limit)
 
     cache[full_url] = {"response": response, "timestamp": time.time()}
